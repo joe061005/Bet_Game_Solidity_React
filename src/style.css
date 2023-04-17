@@ -1,0 +1,36 @@
+.Container{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.stageContainer{
+    font-size: 25px;
+}
+
+.playerContainer{
+    font-size: 20px;
+}
+
+.nextStageContainer{
+    font-size: 12px;
+}
+
+.RandomNumTextField{
+    width: 50%;
+}
+
+.btnContainer{
+    display: flex;
+    align-items: center;
+    gap: 15px;  
+}
+
+.loginReminderText{
+    color: red;
+    font-size: 20px;
+    text-align: center;
+}
