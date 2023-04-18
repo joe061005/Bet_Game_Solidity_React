@@ -50,7 +50,7 @@ const web3 = new Web3('ws://localhost:8546'); //local Geth node
 await web3.eth.wallet.load('')
 web3.eth.handleRevert = true
 
-const contractAddress = '0xaAB2820CB8F44601a6Fa86B20f2010F4895cD0C9'
+const contractAddress = '0x6BEb0d379F16F7aaf5B3317bB3C209228dC359ED'
 
 const contract = new web3.eth.Contract(abi, contractAddress)
 
@@ -77,10 +77,10 @@ const History = () => {
                 const tx = await web3.eth.getTransaction(txHash);//Obtain the transaction by hash
                 const receipt = await web3.eth.getTransactionReceipt(txHash);
                 newHistory.push({ ...tx, ...receipt, timestamp: block.timestamp })
+                console.log(newHistory);
             }//obtain the transaction
         }
         setHistory((prevHistory) => [...prevHistory, ...newHistory]);//Put together the new history and the old ones
-        console.log(newHistory)
         setPending(false);
     }
 
@@ -94,7 +94,6 @@ const History = () => {
         (async () => {
             subscription = await web3.eth.subscribe('newHeads');
             subscription.on('data', async (params) => {
-                console.log(params)
                 const block = await web3.eth.getBlock(params.number);
                 const newHistory = [];
                 for (const txHash of block.transactions ?? []) {
@@ -132,6 +131,18 @@ const History = () => {
         return "";
     }
 
+    const decodeLog = (inputData) => {
+        console.log('inputData', inputData);
+        var log = ''
+        abi.map((obj) => {
+            if (obj.type == 'event' && obj.name == 'GameResult'){
+                log = web3.eth.abi.decodeLog(obj.inputs, inputData.data, inputData.topics)['winner']
+                return
+            }
+        })
+        return log
+    }
+
     return (
         <Box
             sx={{
@@ -163,6 +174,12 @@ const History = () => {
                     width: 200,
                     valueGetter: ({ value }) => value ? getMethodNameFromABI(value) : ''
 
+                }, {
+                    field: 'logs',
+                    headerName: 'Log',
+                    width: 200,
+                    valueGetter: ({ value }) => (value.length > 0 ? decodeLog(value[0]) : '')
+
                 }]}
                 getRowId={(row) => row.transactionHash}
                 disableRowSelectionOnClick
@@ -171,67 +188,6 @@ const History = () => {
     );
 };
 
-const testAdd = "0x4dE725285836a0323ce0441981911994BaCD62E3"
-
-const testABI = [
-    {
-        "inputs": [],
-        "name": "getValue",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "_value",
-                "type": "uint256"
-            },
-            {
-                "internalType": "string",
-                "name": "salt",
-                "type": "string"
-            },
-            {
-                "internalType": "bytes32",
-                "name": "hash",
-                "type": "bytes32"
-            }
-        ],
-        "name": "reveal",
-        "outputs": [
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "bytes32",
-                "name": "",
-                "type": "bytes32"
-            },
-            {
-                "internalType": "bool",
-                "name": "",
-                "type": "bool"
-            }
-        ],
-        "stateMutability": "pure",
-        "type": "function"
-    }
-]
-
-
-
-const testcontract = new web3.eth.Contract(testABI, testAdd)
-
 const Game = ({ me, setError }) => {
     const [ranNum, setRanNum] = useState(0);
     const [hash, setHash] = useState(0);
@@ -239,12 +195,14 @@ const Game = ({ me, setError }) => {
     const [stage, setStage] = useState(0);
     const [players, setPlayers] = useState([]);
     const [values, setValues] = useState([])
-    const [playerNum, setPlayerNum] = useState(-1)
+    const [deposit, setDeposit] = useState(0)
+    const [winner, setWinner] = useState('')
 
     useEffect(() => {
         generateRandomNumAndSalt();
         updateStage();
     }, [me])
+
 
     useEffect(() => {
         let subscription;
@@ -266,25 +224,24 @@ const Game = ({ me, setError }) => {
     }, []);
 
     useEffect(() => {
-        contract.events.GameResult({ fromBlock: 'latest' }, (err, event) => {
-            if (err) {
-                setError(err.message)
-            } else {
-                console.log(event);
-            }
-        })
+        contract.events.GameResult({ fromBlock: 'latest' }).on('data', (event) => {
+            const {returnValues} = event
+            setValues([parseInt(returnValues['player1_value']), parseInt(returnValues['player2_value'])])
+            setDeposit(web3.utils.fromWei(returnValues['deposit_amount'], 'ether'))
+            setWinner(returnValues['winner'])
+        }).on('error', (err) => {
+            setError(err.reason)
+        });
 
     }, [])
 
     useEffect(() => {
         if (stage == 1 || stage == 2) {
-            console.log('update Player', stage);
             updatePlayer()
         } else if (stage == 5) {
             updateValue()
         }
     }, [stage])
-
 
     const generateRandomNumAndSalt = () => {
         // generate a number bewteen 1 and 10000
@@ -315,12 +272,9 @@ const Game = ({ me, setError }) => {
 
     }
 
-
     const updatePlayer = async () => {
         await contract.methods.get_players().call().then((result) => {
-            console.log("players", result);
             setPlayers(result)
-            setPlayerNum(result[0] == me.address ? 0 : result[1] == me.address ? 1 : -1)
         }).catch((error) => {
             setError(error)
         })
@@ -328,7 +282,6 @@ const Game = ({ me, setError }) => {
 
     const updateValue = async () => {
         await contract.methods.get_values().call().then((result) => {
-            console.log("values", result);
             setValues(result)
         }).catch((error) => {
             setError(error)
@@ -354,7 +307,7 @@ const Game = ({ me, setError }) => {
                 str = "Player 1 revealed"
                 break;
             case 5:
-                str = `Settled, ... (player 1: ${values[0]}, player 2: ${values[1]})`
+                str = `Settled, ${winner} (player 1: ${values[0]}, player 2: ${values[1]}, total deposit: ${deposit})`
                 break;
         }
         return str
@@ -366,7 +319,6 @@ const Game = ({ me, setError }) => {
 
     const getNextStageString = () => {
         var str = ""
-        console.log(players);
         switch (stage) {
             case 0:
                 str = "Join the game via sending a commitment (Current: 0/2 players)"
@@ -410,17 +362,31 @@ const Game = ({ me, setError }) => {
 
     }
 
-    const test = async () => {
-        // console.log(await web3.eth.getCode(testAdd))
-
-        await testcontract.methods.reveal(ranNum, salt, hash).call().then((result) => {
-            console.log(result);
+    const reveal = async () => {
+        const encoded = contract.methods.reveal(ranNum, salt).encodeABI()
+        await web3.eth.sendSignedTransaction((await me.signTransaction({
+            to: contractAddress, from: me.address, gas: 1000000, data: encoded,
+        })).rawTransaction).catch((e) => {
+            setError(e.reason)
         })
+    }
 
-        await testcontract.methods.getValue().call().then((result) => {
-            console.log(result);
+    const settle = async () => {
+        const encoded = contract.methods.settle().encodeABI()
+        await web3.eth.sendSignedTransaction((await me.signTransaction({
+            to: contractAddress, from: me.address, gas: 1000000, data: encoded,
+        })).rawTransaction).catch((e) => {
+            setError(e.reason)
         })
+    }
 
+    const initGame = async () => {
+        const encoded = contract.methods.init_game().encodeABI()
+        await web3.eth.sendSignedTransaction((await me.signTransaction({
+            to: contractAddress, from: me.address, gas: 1000000, data: encoded,
+        })).rawTransaction).catch((e) => {
+            setError(e.reason)
+        })
     }
 
     return (
@@ -431,7 +397,7 @@ const Game = ({ me, setError }) => {
                         <div className="stageContainer">
                             Stage: {getStageString()}
                         </div>
-                        {(stage != 0 && playerNum >= 0) &&
+                        {(stage != 0 && (players[0] == me.address || players[1] == me.address)) &&
                             <div className="playerContainer">
                                 {getPlayerString()}
                             </div>
@@ -454,22 +420,31 @@ const Game = ({ me, setError }) => {
                             </Button>
                             <Button
                                 className='btn'
-                                onClick={() => { }}
+                                onClick={async () => { await reveal(); }}
                                 sx={styles.btnStyle}
                             >
                                 REVEAL
                             </Button>
                             <Button
                                 className='btn'
-                                onClick={() => { }}
+                                onClick={async () => { await settle(); }}
                                 sx={styles.btnStyle}
                             >
                                 SETTLE
                             </Button>
                             <Button
                                 className='btn'
-                                onClick={() => { }}
+                                onClick={async () => {
+                                    generateRandomNumAndSalt()
+                                    if (stage == 5){
+                                        setPlayers([])
+                                        setStage(0);
+                                        setPlayers([]);
+                                        await initGame();
+                                    }
+                                }}
                                 sx={styles.btnStyle}
+                                disabled = {stage != 5 && stage != 0}
                             >
                                 RESET
                             </Button>
