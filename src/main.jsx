@@ -135,7 +135,7 @@ const History = () => {
         console.log('inputData', inputData);
         var log = ''
         abi.map((obj) => {
-            if (obj.type == 'event' && obj.name == 'GameResult'){
+            if (obj.type == 'event' && obj.name == 'GameResult') {
                 log = web3.eth.abi.decodeLog(obj.inputs, inputData.data, inputData.topics)['winner']
                 return
             }
@@ -225,13 +225,11 @@ const Game = ({ me, setError }) => {
 
     useEffect(() => {
         contract.events.GameResult({ fromBlock: 'latest' }).on('data', (event) => {
-            const {returnValues} = event
+            const { returnValues } = event
             setValues([parseInt(returnValues['player1_value']), parseInt(returnValues['player2_value'])])
             setDeposit(web3.utils.fromWei(returnValues['deposit_amount'], 'ether'))
             setWinner(returnValues['winner'])
-        }).on('error', (err) => {
-            setError(err.reason)
-        });
+        })
 
     }, [])
 
@@ -436,7 +434,7 @@ const Game = ({ me, setError }) => {
                                 className='btn'
                                 onClick={async () => {
                                     generateRandomNumAndSalt()
-                                    if (stage == 5){
+                                    if (stage == 5) {
                                         setPlayers([])
                                         setStage(0);
                                         setPlayers([]);
@@ -444,7 +442,7 @@ const Game = ({ me, setError }) => {
                                     }
                                 }}
                                 sx={styles.btnStyle}
-                                disabled = {stage != 5 && stage != 0}
+                                disabled={stage != 5 && stage != 0}
                             >
                                 RESET
                             </Button>
