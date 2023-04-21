@@ -19,7 +19,7 @@
     font-size: 12px;
 }
 
-.RandomNumTextField{
+.RandomNumTextField, .RandomNumHashTextField, .SaltTextField{
     width: 50%;
 }
 

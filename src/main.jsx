@@ -50,7 +50,7 @@ const web3 = new Web3('ws://localhost:8546'); //local Geth node
 await web3.eth.wallet.load('')
 web3.eth.handleRevert = true
 
-const contractAddress = '0x6BEb0d379F16F7aaf5B3317bB3C209228dC359ED'
+const contractAddress = '0x84Ee5Bee93b7ff40503c84878Df6Ff9152BCc0fb'
 
 const contract = new web3.eth.Contract(abi, contractAddress)
 
@@ -132,7 +132,6 @@ const History = () => {
     }
 
     const decodeLog = (inputData) => {
-        console.log('inputData', inputData);
         var log = ''
         abi.map((obj) => {
             if (obj.type == 'event' && obj.name == 'GameResult') {
@@ -188,7 +187,7 @@ const History = () => {
     );
 };
 
-const Game = ({ me, setError }) => {
+const Game = ({ me, setError, balance }) => {
     const [ranNum, setRanNum] = useState(0);
     const [hash, setHash] = useState(0);
     const [salt, setSalt] = useState('');
@@ -199,7 +198,13 @@ const Game = ({ me, setError }) => {
     const [winner, setWinner] = useState('')
 
     useEffect(() => {
-        generateRandomNumAndSalt();
+        if(me && localStorage.getItem(`r${me.address}`)){
+            setRanNum(localStorage.getItem(`r${me.address}`))
+            setHash(localStorage.getItem(`h${me.address}`))
+            setSalt(localStorage.getItem(`s${me.address}`))
+        }else {
+            generateRandomNumAndSalt();
+        }
         updateStage();
     }, [me])
 
@@ -241,13 +246,18 @@ const Game = ({ me, setError }) => {
         }
     }, [stage])
 
-    const generateRandomNumAndSalt = () => {
+    const generateRandomNumAndSalt =  () => {
         // generate a number bewteen 1 and 10000
         const num = Math.floor((Math.random() * 10000) + 1)
         const salt = generateRandomSalt()
         setRanNum(num)
         setHash(web3.utils.keccak256(num + salt))
         setSalt(salt)
+        if(me){
+           localStorage.setItem(`r${me.address}`, num)
+           localStorage.setItem(`h${me.address}`, web3.utils.keccak256(num + salt))
+           localStorage.setItem(`s${me.address}`, salt)
+        }
     }
 
     const generateRandomSalt = () => {
@@ -341,6 +351,10 @@ const Game = ({ me, setError }) => {
     }
 
     const commit = async () => {
+        if(parseFloat(web3.utils.fromWei(balance, 'ether')) < 20){
+            setError(`You do not have 20 ETH to join the game (Your Balance: ${parseFloat(web3.utils.fromWei(balance, 'ether'))} ETH)`)
+            return
+        }
         const encoded = contract.methods.set_commitment(hash).encodeABI()
         await web3.eth.sendSignedTransaction((await me.signTransaction({
             to: contractAddress, from: me.address, gas: 1000000, value: web3.utils.toWei('20', 'ether'), data: encoded,
@@ -405,8 +419,18 @@ const Game = ({ me, setError }) => {
                         </div>
                         <TextField
                             label='Random chosen value'
-                            value={hash}
+                            value={ranNum}
                             className='RandomNumTextField'
+                        />
+                        <TextField
+                            label='Random chosen value (Hash)'
+                            value={hash}
+                            className='RandomNumHashTextField'
+                        />
+                        <TextField
+                            label='Salt'
+                            value={salt}
+                            className='SaltTextField'
                         />
                         <div className="btnContainer">
                             <Button
@@ -537,7 +561,7 @@ const Index = () => {
         </AppBar>
         <Routes>
             <Route path='/history' element={<History />} />
-            <Route path='/' element={<Game me={me} setError={setError} />} />
+            <Route path='/' element={<Game me={me} setError={setError} balance={balance} />} />
         </Routes>
         <Dialog open={infoOpen} onClose={() => setInfoOpen(false)}>
             <Stack gap={2} sx={{
