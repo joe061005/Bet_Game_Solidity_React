@@ -50,6 +50,7 @@ const web3 = new Web3('ws://localhost:8546'); //local Geth node
 await web3.eth.wallet.load('')
 web3.eth.handleRevert = true
 
+// !!!---------------------------------------- please change the contract address ----------------------------------------!!!
 const contractAddress = '0x84Ee5Bee93b7ff40503c84878Df6Ff9152BCc0fb'
 
 const contract = new web3.eth.Contract(abi, contractAddress)
