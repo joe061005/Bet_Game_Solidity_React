@@ -51,7 +51,7 @@ await web3.eth.wallet.load('')
 web3.eth.handleRevert = true
 
 // !!!---------------------------------------- please change the contract address ----------------------------------------!!!
-const contractAddress = '0x84Ee5Bee93b7ff40503c84878Df6Ff9152BCc0fb'
+const contractAddress = '0xe4Bf492393D2069A3A53B60C19208f4319F34F65'
 
 const contract = new web3.eth.Contract(abi, contractAddress)
 
@@ -482,7 +482,7 @@ const Game = ({ me, setError, balance }) => {
                     </div >
                     :
                     <p className='loginReminderText'>
-                        Please choose an account first
+                        Please connect to your wallet first
                     </p>
             }
         </>
